@@ -27,7 +27,7 @@ public class RESTService {
         init();
 
         JsonObject postgreSQLClientConfig = new JsonObject()
-                .put("database", "mapsites")
+                .put("database", "campsites")
                 .put("username", InitServer.dbOwner)
                 .put("password", InitServer.dbPassword);
         postgreSQLClient = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig);
@@ -48,11 +48,14 @@ public class RESTService {
                 InfoObject.class);
 
         System.out.println(infoObject.latNorth);
+
+
         vertx.executeBlocking(future -> {
-            postgreSQLClient.getConnection(res -> {
-                if (res.succeeded()) {
-                    SQLConnection connection = res.result();
-                    InfoObject returnResult = new InfoObject();
+
+            postgreSQLClient.getConnection(res5 -> {
+                if (res5.succeeded()) {
+                    System.out.println("res succeeded");
+                    SQLConnection connection = res5.result();
                     try {
                         connection.query("SELECT * FROM " +
                                 Constants.LOCATIONS_TABLE_NAME
@@ -60,49 +63,60 @@ public class RESTService {
                                 + " AND " + Constants.LocationsTable.longitude + " > " + infoObject.longWest
                                 + " AND " + Constants.LocationsTable.latitude + " < " + infoObject.latNorth
                                 + " AND " + Constants.LocationsTable.longitude + " < " + infoObject.longEast
-                                + ";", res2 -> {
-                            if (res2.succeeded()) {
-                                List<JsonObject> results = res2.result().getRows();
-                                int sz = res2.result().getNumRows();
+                                + ";", res33 -> {
+                            if (!res33.failed()) {
+                                System.out.println("res33 succeeded");
+                                List<JsonObject> results = res33.result().getRows();
+                                int sz = res33.result().getNumRows();
+                                System.out.println("Size is " + sz);
+
+                                InfoObject returnResult = new InfoObject();
+
                                 returnResult.ids = new int[sz];
                                 returnResult.latitudes = new double[sz];
                                 returnResult.longitudes = new double[sz];
                                 returnResult.types = new int[sz];
-                                infoObject.names = new String[sz];
+                                returnResult.names = new String[sz];
 
                                 for(int i = 0; i < sz; i++){
                                     JsonObject tmp = results.get(i);
-                                    returnResult.ids[i] = tmp.getInteger("id");
                                     returnResult.longitudes[i] = tmp.getDouble("longitude");
+                                    System.out.println("Sending " + tmp.getDouble("longitude") + ":LONGITUDE");
                                     returnResult.latitudes[i] = tmp.getDouble("latitude");
                                     returnResult.names[i] = tmp.getString("name");
                                     returnResult.types[i] = tmp.getInteger("type");
+                                    returnResult.ids[i] = Integer.parseInt(tmp.getString("id"));
+                                    System.out.println("Sending " + tmp.getString("id") + ":ID");
+
                                 }
-                                future.complete("sending routingContextBack");
-                            } else {
-                               future.fail("failed to select points");
+                                //routingContext.response().end(Json.encodePrettily(returnResult));
+                                System.out.println("RESPONSE SENT");
+                                future.complete(returnResult);
                             }
                         });
                     } catch (Exception e) {
                         e.printStackTrace();
                     } finally {
                         connection.close();
-                        routingContext.response().end(Json.encodePrettily(returnResult));
                     }
                 }else{
+                    System.out.println("res failed");
                 }
             });
-        },res-> {
-            if (!res.succeeded()) {
+        },res6-> {
+            if (res6.succeeded()) {
+                System.out.println("res6 succeeded");
+                System.out.println(Json.encodePrettily(res6.result()));
+                routingContext.response().end(Json.encodePrettily((InfoObject)res6.result()));
+
+            }else{
+
+                System.out.println("res6 failed");
                 routingContext.response().end(Json.encodePrettily(new InfoObject()));
             }
-
         });
 
-        InfoObject inf = new InfoObject();
-        inf.name = "oh hey";
-        routingContext.response().end(Json.encodePrettily(inf));
-            //netSocket.write(Json.encode(inf) + "\n");
+        //routingContext.response().end(Json.encodePrettily(new InfoObject()));
 
     }
 

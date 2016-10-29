@@ -8,10 +8,10 @@ public class InfoObject {
 
 
     public String name;
-    public float latNorth;
-    public float latSouth;
-    public float longWest;
-    public float longEast;
+    public double latNorth;
+    public double latSouth;
+    public double longWest;
+    public double longEast;
     public float latPoint;
     public float longPoint;
 
