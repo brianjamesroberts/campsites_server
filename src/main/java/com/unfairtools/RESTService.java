@@ -34,6 +34,18 @@ public class RESTService {
 
     }
 
+    public void getMarkerDetailedInfo(RoutingContext routingContext){
+
+        System.out.println("getMarkerDetailedInfo received");
+
+        final InfoObject infoObject = Json.decodeValue(routingContext.getBodyAsString(),
+                InfoObject.class);
+
+        System.out.println(infoObject.ids[0]);
+
+
+    }
+
 
 
     public void getMarkers(RoutingContext routingContext){
