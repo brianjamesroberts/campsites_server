@@ -41,9 +41,59 @@ public class RESTService {
         final InfoObject infoObject = Json.decodeValue(routingContext.getBodyAsString(),
                 InfoObject.class);
 
-        System.out.println(infoObject.ids[0]);
+        System.out.println("attempting to fetch marker info for: " + infoObject.ids[0]);
 
+        vertx.executeBlocking(future -> {
+            postgreSQLClient.getConnection(res2 -> {
+                if (res2.succeeded()) {
 
+                    SQLConnection connection = res2.result();
+                    try {
+                        String query = "SELECT * FROM " +
+                                Constants.LOCATIONS_INFO_TABLE_NAME
+                                + " WHERE " + Constants.LocationsInfoTable.id_primary_key + " = " + infoObject.ids[0]
+                                + ";";
+                        System.out.println(query);
+                        connection.query(query, res3 -> {
+                            if (res3.succeeded()) {
+                                System.out.println("res3 succeeded");
+                                JsonObject results = res3.result().getRows().get(0);
+                                System.out.println("JSon acheieved");
+                                MarkerInfoObject returnResult = new MarkerInfoObject();
+                                returnResult.id_primary_key = results.getInteger(Constants.LocationsInfoTable.id_primary_key);
+                                returnResult.description = results.getString(Constants.LocationsInfoTable.description);
+                                returnResult.website = results.getString(Constants.LocationsInfoTable.website);
+                                returnResult.phone = results.getString(Constants.LocationsInfoTable.phone);
+                                returnResult.google_url = results.getString(Constants.LocationsInfoTable.google_url);
+                                returnResult.season = results.getString(Constants.LocationsInfoTable.season);
+                                returnResult.facilities = results.getString(Constants.LocationsInfoTable.facilities);
+                                System.out.println("RESPONSE SENT ( marker info ) " + Json.encodePrettily(returnResult));
+                                future.complete(returnResult);
+                                return;
+                            }else{
+                                future.fail("db query failed (res3)");
+                            }
+                        });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        future.fail("Unknown fail for getMarkerInfo");
+                    } finally {
+                        connection.close();
+                    }
+
+                } else {
+                    future.fail("Can't connect to db (res2)");
+                    return;
+                }
+            });
+        }, res1 ->{
+                if(res1.succeeded()){
+                    routingContext.response().end(Json.encodePrettily(res1.result()));
+                }else{
+                    routingContext.response().end("nullll");
+                    System.out.println(res1.cause());
+                }
+        });
     }
 
 
@@ -138,6 +188,8 @@ public class RESTService {
             router.route("/campsites/api/*").handler(BodyHandler.create());
 
             router.post("/campsites/api/boundsformarkers").handler(this::getMarkers);
+
+            router.post("/campsites/api/idformarkerinfo").handler(this::getMarkerDetailedInfo);
 //            router.post("/pongonline/api/login").handler(this::getLogin);
 //            router.post("/pongonline/api/invites").handler(this::getInvites);
 //            router.post("/pongonline/api/invite_user").handler(this::inviteUser);

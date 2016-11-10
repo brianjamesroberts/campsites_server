@@ -21,13 +21,15 @@ public class Constants{
         public final static String zoom = "zoom";
     }
 
-    public final static String LOCATIONS_INFO_TABLE_NAME = "LOCATIONS_INFO";
+    public final static String LOCATIONS_INFO_TABLE_NAME = "LOCATION_INFO_TABLE";
     public class LocationsInfoTable{
         public final static String id_primary_key = "id";
         public final static String description = "description";
-        public final static String imagesurl = "images_url";
-        public final static String cached_rating = "cached_rating";
-        public final static String cached_comments = "cached_comments";
+        public final static String website = "website";
+        public final static String phone = "phone";
+        public final static String google_url = "google_url";
+        public final static String season = "season";
+        public final static String facilities = "facilities";
     }
 
 }
