@@ -32,4 +32,10 @@ public class Constants{
         public final static String facilities = "facilities";
     }
 
+    public final static String LOGIN_TABLE_NAME = "LOGIN_TABLE";
+    public final class LoginTable{
+        public final static String id_username_primary = "username";
+        public final static String password = "password";
+    }
+
 }

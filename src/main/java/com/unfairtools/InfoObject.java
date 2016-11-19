@@ -5,7 +5,6 @@ package com.unfairtools;
  */
 public class InfoObject {
 
-
     public String name;
     public double latNorth;
     public double latSouth;
@@ -20,8 +19,8 @@ public class InfoObject {
     public String[] names;
     public int[] types;
 
+    public String authKey;
+
     public String address;
-
-
 
 }

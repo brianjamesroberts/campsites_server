@@ -1,5 +1,6 @@
 package com.unfairtools;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
@@ -182,6 +183,89 @@ public class RESTService {
 
     }
 
+    public void getLogin(RoutingContext routingContext){
+
+        System.out.println("login post received");
+        String user = routingContext.request().getHeader("username");
+        String pass = routingContext.request().getHeader("password");
+        System.out.println("REST:" + routingContext.request().getHeader("username"));
+        System.out.println("REST:" + routingContext.request().getHeader("password"));
+        if(!user.matches("^[a-zA-Z0-9]*$")||!pass.matches("^[a-zA-Z0-9]*$")){
+            InfoObject inf = new InfoObject();
+            inf.name = "Must use a-z 1-9";
+            inf.ids = new int[]{0};
+            routingContext.response().end(Json.encodePrettily(inf));
+            //netSocket.write(Json.encode(inf) + "\n");
+        }else {
+            vertx.executeBlocking(future -> {
+                // Call some blocking API that takes a significant amount of time to return
+                Login(vertx, user, pass, "campsites", future);
+            }, res -> {
+                if (res.succeeded()) {
+                    System.out.println("Login achieved\n");
+                    InfoObject ret = new InfoObject();
+                    ret.names = new String[]{user};
+                    ret.name= new String(user);
+                    ret.ids = new int[]{1};
+                    ret.authKey = (String)res.result();
+                    routingContext.response().end(Json.encode(ret));
+                } else {
+                    System.out.println("Login Failed");
+                    InfoObject ret = new InfoObject();
+                    ret.ids = new int[]{0};
+                    ret.name = new String("login_denied");
+                    routingContext.response().end(Json.encodePrettily(ret));
+
+                }
+
+
+            });
+        }
+    }
+
+    public static String generateAuth(String username){
+        return username+"$$$$$$$";
+    }
+
+    public static void Login(io.vertx.core.Vertx vertx, String user, String pass, String appName, Future future){
+
+        JsonObject postgreSQLClientConfig = new JsonObject()
+                .put("database", appName)
+                .put("username", InitServer.dbOwner)
+                .put("password", InitServer.dbPassword);
+        AsyncSQLClient postgreSQLClient = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig);
+        postgreSQLClient.getConnection(res -> {
+
+            if (res.succeeded()) {
+                SQLConnection connection = res.result();
+
+                try {
+                    connection.query("SELECT COUNT(*) from " + Constants.LOGIN_TABLE_NAME + " WHERE username = '" + user
+                            + "' AND password = '" + pass + "';", res2 -> {
+                        if (res2.succeeded()) {
+                            System.out.println("Count for " + user + " : " + pass + " resulted in " +
+                                    res2.result().getResults().get(0).getInteger(0));
+                            if(res2.result().getResults().get(0).getInteger(0)>0){
+                                future.complete(generateAuth(user));
+                                //future.complete();
+                            }else{
+                                future.fail("Incorrect Username or Password");
+                            }
+                        } else {
+                            future.fail("Internal failure 9009");
+                        }
+
+                    });
+                }finally{
+                    connection.close();
+
+                }
+            } else {
+                System.out.println("Failed to connect to postgres" + res.cause());
+            }
+        });
+    }
+
     public void init(){
             Router router = Router.router(vertx);
 
@@ -190,7 +274,8 @@ public class RESTService {
             router.post("/campsites/api/boundsformarkers").handler(this::getMarkers);
 
             router.post("/campsites/api/idformarkerinfo").handler(this::getMarkerDetailedInfo);
-//            router.post("/pongonline/api/login").handler(this::getLogin);
+
+            router.post("/campsites/api/login").handler(this::getLogin);
 //            router.post("/pongonline/api/invites").handler(this::getInvites);
 //            router.post("/pongonline/api/invite_user").handler(this::inviteUser);
 //            router.post("/pongonline/api/new_account").handler(this::newAccount);
@@ -206,9 +291,7 @@ public class RESTService {
                             System.out.println("Failure deploying REST to " + InitServer.restfulPort);
                             //fut.fail(result.cause());
                         }
-
                     });
-
     }
 
 }
