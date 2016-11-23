@@ -3,6 +3,7 @@ package com.unfairtools;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.asyncsql.AsyncSQLClient;
 import io.vertx.ext.asyncsql.PostgreSQLClient;
@@ -183,6 +184,71 @@ public class RESTService {
 
     }
 
+
+    public void getSearchInfo(RoutingContext routingContext){
+
+        final InfoObject infoObject = Json.decodeValue(routingContext.getBodyAsString(),
+                InfoObject.class);
+
+
+        vertx.executeBlocking(future -> {
+
+            postgreSQLClient.getConnection(res5 -> {
+                if (res5.succeeded()) {
+                    System.out.println("res succeeded");
+                    SQLConnection connection = res5.result();
+                    try {
+
+
+                        //"SELECT * FROM LOCATIONS_TABLE WHERE name ILIKE '%el%';";
+                        String query = "SELECT * FROM " +
+                                Constants.LOCATIONS_TABLE_NAME +
+                                " WHERE " +
+                                Constants.LocationsTable.name + " ILIKE " + "'%" + infoObject.name.trim() + "%'"
+                                + ";";
+                        System.out.println("querying " + query);
+                        connection.query(query, res33 -> {
+                            if (!res33.failed()) {
+                                InfoObject returnInfo = new InfoObject();
+                                int numRows = res33.result().getNumRows();
+                                System.out.println("Num of results " + numRows);
+                                returnInfo.names = new String[numRows];
+                                returnInfo.latitudes = new double[numRows];
+                                returnInfo.longitudes = new double[numRows];
+                                List<JsonArray> results = res33.result().getResults();
+                                for(int i = 0;  i < 5 &&i < numRows; i ++) {
+                                    System.out.println("Appending " + results.get(i).getString(3));
+                                    returnInfo.latitudes[i] = results.get(i).getDouble(1);
+                                    returnInfo.longitudes[i] = results.get(i).getDouble(2);
+                                    returnInfo.names[i] = results.get(i).getString(3);
+                                }
+                                future.complete(returnInfo);
+                            } else {
+
+                            }
+                        });
+                    } catch (Exception e) {
+                        future.fail(e.toString());
+                    }
+                    finally{
+                        connection.close();
+                    }
+                }
+            });
+                    },res->{
+            if(res.succeeded()){
+                System.out.println("Result succeeded for get search results : " + infoObject.name);
+                routingContext.response().end(Json.encodePrettily(res.result()));
+            }else{
+                System.out.println("Result FAILED for get search results : " + infoObject.name);
+                routingContext.response().end(Json.encodePrettily(new InfoObject()));
+            }
+
+            });
+
+
+    }
+
     public void getLogin(RoutingContext routingContext){
 
         System.out.println("login post received");
@@ -276,6 +342,9 @@ public class RESTService {
             router.post("/campsites/api/idformarkerinfo").handler(this::getMarkerDetailedInfo);
 
             router.post("/campsites/api/login").handler(this::getLogin);
+
+
+            router.post("/campsites/api/postforsearchinfo").handler(this::getSearchInfo);
 //            router.post("/pongonline/api/invites").handler(this::getInvites);
 //            router.post("/pongonline/api/invite_user").handler(this::inviteUser);
 //            router.post("/pongonline/api/new_account").handler(this::newAccount);
