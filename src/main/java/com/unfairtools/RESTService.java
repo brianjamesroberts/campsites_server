@@ -215,12 +215,14 @@ public class RESTService {
                                 returnInfo.names = new String[numRows];
                                 returnInfo.latitudes = new double[numRows];
                                 returnInfo.longitudes = new double[numRows];
+                                returnInfo.ids = new int[numRows];
                                 List<JsonArray> results = res33.result().getResults();
                                 for(int i = 0;  i < 5 &&i < numRows; i ++) {
                                     System.out.println("Appending " + results.get(i).getString(3));
                                     returnInfo.latitudes[i] = results.get(i).getDouble(1);
                                     returnInfo.longitudes[i] = results.get(i).getDouble(2);
                                     returnInfo.names[i] = results.get(i).getString(3);
+                                    returnInfo.ids[i] = Integer.parseInt(results.get(i).getString(0));
                                 }
                                 future.complete(returnInfo);
                             } else {
