@@ -14,6 +14,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 /**
  * Created by brianroberts on 10/28/16.
@@ -27,6 +28,7 @@ public class RESTService {
     public RESTService(Vertx vert){
         vertx = vert;
         init();
+
 
         JsonObject postgreSQLClientConfig = new JsonObject()
                 .put("database", "campsites")
@@ -45,10 +47,10 @@ public class RESTService {
 
         System.out.println("attempting to fetch marker info for: " + infoObject.ids[0]);
 
+
         vertx.executeBlocking(future -> {
             postgreSQLClient.getConnection(res2 -> {
                 if (res2.succeeded()) {
-
                     SQLConnection connection = res2.result();
                     try {
                         String query = "SELECT * FROM " +
@@ -72,7 +74,7 @@ public class RESTService {
                                 System.out.println("RESPONSE SENT ( marker info ) " + Json.encodePrettily(returnResult));
                                 future.complete(returnResult);
                                 return;
-                            }else{
+                            } else {
                                 future.fail("db query failed (res3)");
                             }
                         });
@@ -85,10 +87,10 @@ public class RESTService {
 
                 } else {
                     future.fail("Can't connect to db (res2)");
-                    return;
+                    //return;
                 }
             });
-        }, res1 ->{
+        },true, res1 ->{
                 if(res1.succeeded()){
                     routingContext.response().end(Json.encodePrettily(res1.result()));
                 }else{
@@ -100,18 +102,29 @@ public class RESTService {
 
 
 
-    public void getMarkers(RoutingContext routingContext){
+    public void getMarkers_get(RoutingContext routingContext){
 
-        System.out.println("getMarkers received");
-
-
+        System.out.println("getMarkers_get received");
 
 
 
-        final InfoObject infoObject = Json.decodeValue(routingContext.getBodyAsString(),
-                InfoObject.class);
+        final InfoObject infoObject = new InfoObject();
 
-        System.out.println(infoObject.latNorth);
+        System.out.println(routingContext.request().getHeader("lat_ne"));
+
+        String latNE = routingContext.request().absoluteURI();
+        System.out.println(latNE);
+
+        infoObject.latNorth = Double.parseDouble(routingContext.request().getParam("lat_ne"));
+        infoObject.longEast = Double.parseDouble(routingContext.request().getParam("lng_ne"));
+
+        infoObject.latSouth = Double.parseDouble(routingContext.request().getParam("lat_sw"));
+        infoObject.longWest = Double.parseDouble(routingContext.request().getParam("lng_sw"));
+
+        System.out.println(infoObject.latNorth + "latNorthEast");
+        System.out.println(infoObject.longEast + "lngNorthEast");
+        System.out.println(infoObject.latSouth + "latSouthWest");
+        System.out.println(infoObject.longWest + "lngSouthWest");
 
 
         vertx.executeBlocking(future -> {
@@ -121,6 +134,7 @@ public class RESTService {
                     System.out.println("res succeeded");
                     SQLConnection connection = res5.result();
                     try {
+
                         connection.query("SELECT * FROM " +
                                 Constants.LOCATIONS_TABLE_NAME
                                 + " WHERE " + Constants.LocationsTable.latitude + " > " + infoObject.latSouth
@@ -161,13 +175,98 @@ public class RESTService {
                     } catch (Exception e) {
                         e.printStackTrace();
                     } finally {
+
                         connection.close();
                     }
                 }else{
                     System.out.println("res failed");
                 }
             });
-        },res6-> {
+        },true,res6-> {
+            if (res6.succeeded()) {
+                System.out.println("res6 succeeded");
+                System.out.println(Json.encodePrettily(res6.result()));
+                routingContext.response().end(Json.encodePrettily((InfoObject)res6.result()));
+
+            }else{
+
+                System.out.println("res6 failed");
+                routingContext.response().end(Json.encodePrettily(new InfoObject()));
+            }
+        });
+
+    }
+
+    public void getMarkers(RoutingContext routingContext){
+
+        System.out.println("getMarkers received");
+
+
+
+
+
+        final InfoObject infoObject = Json.decodeValue(routingContext.getBodyAsString(),
+                InfoObject.class);
+
+        System.out.println(infoObject.latNorth);
+
+
+        vertx.executeBlocking(future -> {
+
+            postgreSQLClient.getConnection(res5 -> {
+                if (res5.succeeded()) {
+                    System.out.println("res succeeded");
+                    SQLConnection connection = res5.result();
+                    try {
+
+                        connection.query("SELECT * FROM " +
+                                Constants.LOCATIONS_TABLE_NAME
+                                + " WHERE " + Constants.LocationsTable.latitude + " > " + infoObject.latSouth
+                                + " AND " + Constants.LocationsTable.longitude + " > " + infoObject.longWest
+                                + " AND " + Constants.LocationsTable.latitude + " < " + infoObject.latNorth
+                                + " AND " + Constants.LocationsTable.longitude + " < " + infoObject.longEast
+                                + ";", res33 -> {
+                            if (!res33.failed()) {
+                                System.out.println("res33 succeeded");
+                                List<JsonObject> results = res33.result().getRows();
+                                int sz = res33.result().getNumRows();
+                                System.out.println("Size is " + sz);
+
+                                InfoObject returnResult = new InfoObject();
+
+                                returnResult.ids = new int[sz];
+                                returnResult.latitudes = new double[sz];
+                                returnResult.longitudes = new double[sz];
+                                returnResult.types = new int[sz];
+                                returnResult.names = new String[sz];
+
+                                for(int i = 0; i < sz; i++){
+                                    JsonObject tmp = results.get(i);
+                                    returnResult.longitudes[i] = tmp.getDouble("longitude");
+                                    System.out.println("Sending " + tmp.getDouble("longitude") + ":LONGITUDE");
+                                    returnResult.latitudes[i] = tmp.getDouble("latitude");
+                                    returnResult.names[i] = tmp.getString("name");
+                                    returnResult.types[i] = tmp.getInteger("type");
+                                    returnResult.ids[i] = Integer.parseInt(tmp.getString("id"));
+                                    System.out.println("Sending " + tmp.getString("id") + ":ID");
+
+                                }
+                                //routingContext.response().end(Json.encodePrettily(returnResult));
+                                System.out.println("RESPONSE SENT");
+                                future.complete(returnResult);
+                            }
+                        });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+
+                        connection.close();
+                    }
+                }else{
+                    System.out.println("res failed");
+                }
+            });
+        },true,res6-> {
             if (res6.succeeded()) {
                 System.out.println("res6 succeeded");
                 System.out.println(Json.encodePrettily(res6.result()));
@@ -233,11 +332,13 @@ public class RESTService {
                         future.fail(e.toString());
                     }
                     finally{
+
                         connection.close();
+
                     }
                 }
             });
-                    },res->{
+                    },true,res->{
             if(res.succeeded()){
                 System.out.println("Result succeeded for get search results : " + infoObject.name);
                 routingContext.response().end(Json.encodePrettily(res.result()));
@@ -267,8 +368,8 @@ public class RESTService {
         }else {
             vertx.executeBlocking(future -> {
                 // Call some blocking API that takes a significant amount of time to return
-                Login(vertx, user, pass, "campsites", future);
-            }, res -> {
+                Login(vertx, user, pass, "campsites", future, postgreSQLClient);
+            }, true,res -> {
                 if (res.succeeded()) {
                     System.out.println("Login achieved\n");
                     InfoObject ret = new InfoObject();
@@ -295,28 +396,24 @@ public class RESTService {
         return username+"$$$$$$$";
     }
 
-    public static void Login(io.vertx.core.Vertx vertx, String user, String pass, String appName, Future future){
+    public static void Login(io.vertx.core.Vertx vertx, String user, String pass, String appName, Future future, AsyncSQLClient postgreSQLClient){
 
-        JsonObject postgreSQLClientConfig = new JsonObject()
-                .put("database", appName)
-                .put("username", InitServer.dbOwner)
-                .put("password", InitServer.dbPassword);
-        AsyncSQLClient postgreSQLClient = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig);
         postgreSQLClient.getConnection(res -> {
 
             if (res.succeeded()) {
                 SQLConnection connection = res.result();
 
                 try {
+
                     connection.query("SELECT COUNT(*) from " + Constants.LOGIN_TABLE_NAME + " WHERE username = '" + user
                             + "' AND password = '" + pass + "';", res2 -> {
                         if (res2.succeeded()) {
                             System.out.println("Count for " + user + " : " + pass + " resulted in " +
                                     res2.result().getResults().get(0).getInteger(0));
-                            if(res2.result().getResults().get(0).getInteger(0)>0){
+                            if (res2.result().getResults().get(0).getInteger(0) > 0) {
                                 future.complete(generateAuth(user));
                                 //future.complete();
-                            }else{
+                            } else {
                                 future.fail("Incorrect Username or Password");
                             }
                         } else {
@@ -324,7 +421,10 @@ public class RESTService {
                         }
 
                     });
+                }catch(Exception e){
+
                 }finally{
+
                     connection.close();
 
                 }
@@ -338,6 +438,8 @@ public class RESTService {
             Router router = Router.router(vertx);
 
             router.route("/campsites/api/*").handler(BodyHandler.create());
+
+            router.get("/campsites/api/boundsformarkers_get").handler(this::getMarkers_get);
 
             router.post("/campsites/api/boundsformarkers").handler(this::getMarkers);
 
