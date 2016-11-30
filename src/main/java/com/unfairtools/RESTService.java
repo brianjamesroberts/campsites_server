@@ -59,6 +59,7 @@ public class RESTService {
                                 + ";";
                         System.out.println(query);
                         connection.query(query, res3 -> {
+                            connection.close();
                             if (res3.succeeded()) {
                                 System.out.println("res3 succeeded");
                                 JsonObject results = res3.result().getRows().get(0);
@@ -82,7 +83,7 @@ public class RESTService {
                         e.printStackTrace();
                         future.fail("Unknown fail for getMarkerInfo");
                     } finally {
-                        connection.close();
+//                        connection.close();
                     }
 
                 } else {
@@ -142,6 +143,7 @@ public class RESTService {
                                 + " AND " + Constants.LocationsTable.latitude + " < " + infoObject.latNorth
                                 + " AND " + Constants.LocationsTable.longitude + " < " + infoObject.longEast
                                 + ";", res33 -> {
+                            connection.close();
                             if (!res33.failed()) {
                                 System.out.println("res33 succeeded");
                                 List<JsonObject> results = res33.result().getRows();
@@ -176,7 +178,7 @@ public class RESTService {
                         e.printStackTrace();
                     } finally {
 
-                        connection.close();
+//                        connection.close();
                     }
                 }else{
                     System.out.println("res failed");
@@ -226,6 +228,7 @@ public class RESTService {
                                 + " AND " + Constants.LocationsTable.latitude + " < " + infoObject.latNorth
                                 + " AND " + Constants.LocationsTable.longitude + " < " + infoObject.longEast
                                 + ";", res33 -> {
+                            connection.close();
                             if (!res33.failed()) {
                                 System.out.println("res33 succeeded");
                                 List<JsonObject> results = res33.result().getRows();
@@ -260,7 +263,7 @@ public class RESTService {
                         e.printStackTrace();
                     } finally {
 
-                        connection.close();
+//                        connection.close();
                     }
                 }else{
                     System.out.println("res failed");
@@ -307,6 +310,7 @@ public class RESTService {
                                 + ";";
                         System.out.println("querying " + query);
                         connection.query(query, res33 -> {
+                            connection.close();
                             if (!res33.failed()) {
                                 InfoObject returnInfo = new InfoObject();
                                 int numRows = res33.result().getNumRows();
@@ -333,7 +337,7 @@ public class RESTService {
                     }
                     finally{
 
-                        connection.close();
+//                        connection.close();
 
                     }
                 }
@@ -407,6 +411,7 @@ public class RESTService {
 
                     connection.query("SELECT COUNT(*) from " + Constants.LOGIN_TABLE_NAME + " WHERE username = '" + user
                             + "' AND password = '" + pass + "';", res2 -> {
+                        connection.close();
                         if (res2.succeeded()) {
                             System.out.println("Count for " + user + " : " + pass + " resulted in " +
                                     res2.result().getResults().get(0).getInteger(0));
@@ -425,7 +430,7 @@ public class RESTService {
 
                 }finally{
 
-                    connection.close();
+//                    connection.close();
 
                 }
             } else {
