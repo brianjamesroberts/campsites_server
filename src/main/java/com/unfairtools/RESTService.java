@@ -24,11 +24,14 @@ public class RESTService {
     private Vertx vertx;
     private AsyncSQLClient postgreSQLClient;
 
+    private AuthBank authBank;
+
 
     public RESTService(Vertx vert){
         vertx = vert;
         init();
 
+        authBank = new AuthBank();
 
         JsonObject postgreSQLClientConfig = new JsonObject()
                 .put("database", "campsites")
@@ -372,7 +375,7 @@ public class RESTService {
         }else {
             vertx.executeBlocking(future -> {
                 // Call some blocking API that takes a significant amount of time to return
-                Login(vertx, user, pass, "campsites", future, postgreSQLClient);
+                Login(authBank, vertx, user, pass, "campsites", future, postgreSQLClient);
             }, true,res -> {
                 if (res.succeeded()) {
                     System.out.println("Login achieved\n");
@@ -381,17 +384,16 @@ public class RESTService {
                     ret.name= new String(user);
                     ret.ids = new int[]{1};
                     ret.authKey = (String)res.result();
+                    System.out.println("AUTH KEY: " + ret.authKey);
                     routingContext.response().end(Json.encode(ret));
                 } else {
-                    System.out.println("Login Failed");
+                    System.out.println("Login Failed" + res.cause());
                     InfoObject ret = new InfoObject();
                     ret.ids = new int[]{0};
                     ret.name = new String("login_denied");
                     routingContext.response().end(Json.encodePrettily(ret));
 
                 }
-
-
             });
         }
     }
@@ -400,7 +402,7 @@ public class RESTService {
         return username+"$$$$$$$";
     }
 
-    public static void Login(io.vertx.core.Vertx vertx, String user, String pass, String appName, Future future, AsyncSQLClient postgreSQLClient){
+    public static void Login(AuthBank authBank, io.vertx.core.Vertx vertx, String user, String pass, String appName, Future future, AsyncSQLClient postgreSQLClient){
 
         postgreSQLClient.getConnection(res -> {
 
@@ -416,13 +418,22 @@ public class RESTService {
                             System.out.println("Count for " + user + " : " + pass + " resulted in " +
                                     res2.result().getResults().get(0).getInteger(0));
                             if (res2.result().getResults().get(0).getInteger(0) > 0) {
-                                future.complete(generateAuth(user));
+                                String auth = authBank.putUser(user);
+                                if(auth!=null) {
+                                    future.complete(auth);
+                                    return;
+                                }else{
+                                    future.fail("Failed to create auth for " + user + " auth was " + auth );
+                                    return;
+                                }
                                 //future.complete();
                             } else {
                                 future.fail("Incorrect Username or Password");
+                                return;
                             }
                         } else {
                             future.fail("Internal failure 9009");
+                            return;
                         }
 
                     });

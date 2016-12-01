@@ -11,13 +11,15 @@ public class MarkerInfoObject {
         public String google_url;
         public String season;
         public String facilities;
+        public int[] ids;
 
         public MarkerInfoObject(){
 
         }
 
-        public MarkerInfoObject(int id, String des, String web, String ph, String goog, String seas, String facil){
+        public MarkerInfoObject(int id, int[] idz, String des, String web, String ph, String goog, String seas, String facil){
             this.id_primary_key = id;
+            this.ids = idz;
             this.description = des;
             this.website = web;
             this.phone = ph;
